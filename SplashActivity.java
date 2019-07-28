@@ -2,6 +2,9 @@ package com.coooweee.splash;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Process;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -26,8 +29,13 @@ public class SplashActivity extends AppCompatActivity {
     // loader for configs
     private SplashLoader loader;
 
-    // how long the splash will be displayed
-    private final int delay = 1;
+    // how long the splash will be displayed in seconds
+    private final int delay = 2;  // secs
+
+    public enum broadCastDataType {
+        exit,
+        exitText
+    }
 
     // which acticity should be loaded after the delay
     private final Class<?> mainActivity = BubbletabActivity.class;
@@ -42,59 +50,52 @@ public class SplashActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
 
+
+        if (getIntent().getBooleanExtra(broadCastDataType.exit.toString(), false)) {
+            String text = getIntent().getStringExtra(broadCastDataType.exitText.toString());
+            if(text != null)
+                Toast.makeText(this, text, Toast.LENGTH_LONG).show();
+
+            new Handler().postDelayed(() -> { //Handler(Looper.getMainLooper())
+                finish();
+            }, delay * 1000);
+            return;
+        }
+
         init();
-        start();
     }
 
-
-    private void start() {
-        //load
-        loader.process(() -> {
-            //Go to the main page
-            Log.e("SplashLoader", "onComplete：" + System.currentTimeMillis());
-            startActivity(new Intent(SplashActivity.this, mainActivity));
-            finish();
-        }, throwable -> {
-            Log.e("SplashLoader", "onError：" + System.currentTimeMillis());
-            Toast.makeText(SplashActivity.this, throwable.getMessage(), Toast.LENGTH_LONG).show();
-        });
+    public void exit(String text) {
+        Intent intent = getIntent();
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.putExtra(broadCastDataType.exit.toString(), true);
+        if (text != null)
+            intent.putExtra(broadCastDataType.exitText.toString(), text);
+        finish();
+        startActivity(intent);
     }
 
     private void init() {
-        Observable<Object> localConfig = Observable.create(e -> {
-            Thread.sleep(500);
-            e.onNext(new Object());
-            e.onComplete();
-        }).map(result -> {
-            Log.e("local", "The local configuration is loaded：" + System.currentTimeMillis());
-            return result;
-        }).subscribeOn(Schedulers.io());
-
-        Observable<Object> necessaryNetworkConfig = Observable.create(e -> {
-            Thread.sleep(2_000);
-            e.onNext(new Object());
-            e.onComplete();
-        }).map(result -> {
-            Log.e("online", "Online configuration is loaded：" + System.currentTimeMillis());
-            return result;
-        }).subscribeOn(Schedulers.io());
-
-
-        Observable<Object> offlineConfig = Observable.create(e -> {
-            Thread.sleep(1_000);
-            e.onNext(new Object());
-            e.onComplete();
-        }).map(result -> {
+        // [GA]: no internet no access ATM
+        Observable<Object> offlineConfig = Observable.create(e -> exit("Please connect to the internet.")).map(result -> {
             Log.e("offline", "Offline configuration is loaded：" + System.currentTimeMillis());
             return result;
         }).subscribeOn(Schedulers.io());
 
         loader = new SplashLoader.Builder()
                 .delayMilli(delay * 1000)
-                .localConfig(localConfig)
-                .onlineConfig(necessaryNetworkConfig)
                 .offlineConfig(offlineConfig)
                 .build();
+
+        //load
+        loader.process(() -> {
+            //Go to the main page
+            Log.e("SplashLoader", "onComplete：" + System.currentTimeMillis());
+            startActivity(new Intent(this, mainActivity));
+            finish();
+        }, throwable -> {
+            Log.e("SplashLoader", "onError：" + System.currentTimeMillis());
+        });
     }
 
     @Override
@@ -102,6 +103,7 @@ public class SplashActivity extends AppCompatActivity {
         super.onDestroy();
 
         // dispose the loader
-        loader.recycle();
+        if(loader != null)
+            loader.recycle();
     }
 }
