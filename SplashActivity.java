@@ -78,7 +78,7 @@ public class SplashActivity extends AppCompatActivity {
     private void init() {
         // [GA]: no internet no access ATM
         Observable<Object> offlineConfig = Observable.create(e -> exit("Please connect to the internet.")).map(result -> {
-            Log.e("offline", "Offline configuration is loaded：" + System.currentTimeMillis());
+            Log.d("offline", "Offline configuration is loaded：" + System.currentTimeMillis());
             return result;
         }).subscribeOn(Schedulers.io());
 
@@ -90,7 +90,7 @@ public class SplashActivity extends AppCompatActivity {
         //load
         loader.process(() -> {
             //Go to the main page
-            Log.e("SplashLoader", "onComplete：" + System.currentTimeMillis());
+            Log.d("SplashLoader", "onComplete：" + System.currentTimeMillis());
             startActivity(new Intent(this, mainActivity));
             finish();
         }, throwable -> {
